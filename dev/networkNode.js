@@ -107,10 +107,17 @@ app.post('/register-and-broadcast-node', (req, res) => {
 
     // broadcast new node to network
     // need request-promise library for this "npm install request-promise --save"
+
+    // put returned promises in array
+    const regNodesPromises = [];
     supremeCoin.networkNodes.forEach(networkNodeUrl => {
         const requestOptions = {
-            
+            uri: networkNodeUrl + '/register-node',
+            method: 'POST',
+            body: { newNodeUrl: newNodeUrl },
+            json: true
         }
+        regNodesPromises.push(rp(requestOptions));
     })
 
 
@@ -118,7 +125,7 @@ app.post('/register-and-broadcast-node', (req, res) => {
 
 // register nodes with this endpoint
 app.post('/register-node', (req, res) => {
-
+    
 })
 
 // endpoint to register multiple nodes at once
