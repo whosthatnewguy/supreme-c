@@ -4,6 +4,8 @@ const sha256 = require('sha256');
 // creating a node instance in blockchain data struc
 const currentNodeUrl = process.argv[3];
 
+// import uuid library to create random transaction ids 
+const { v1: uuidv1 } = require('uuid');
 
 
 
@@ -62,13 +64,19 @@ Blockchain.prototype.createNewTransaction = function (amount, sender, recipient)
         amount: amount,
         sender: sender,
         recipient: recipient,
-    }
+        transactionId: uuidv1().split('-').join('')
+    };
 
-    // we then push this transaction to the chain
-    this.pendingTransactions.push(newTransaction);
+    return newTransaction;
+}
+
+Blockchain.prototype.addTransactionToPendingTransactions = function (transactionObj) {
+    // we then push the above transaction to the chain
+    this.pendingTransactions.push(transactionObj);
+    
     // returns index block where we will find the new transaction
     return this.getLastBlock()['index'] + 1;
-}
+};
 
 // 256sha function to hash the data in blocks
 // install and save sha256 library as dependencie via CLI with "npm i sha256 --save"
