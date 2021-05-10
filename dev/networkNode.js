@@ -37,10 +37,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 
-
-
-
-
 // endpoint to fetch blkchn
 app.get('/blockchain', (req,res) => {
     // sending blkchn info to anyone who requests
@@ -51,7 +47,11 @@ app.get('/blockchain', (req,res) => {
 app.post('/transaction', (req, res) => {
     // reciving txn data from txn broadcast endpoint
     const newTransaction = req.body;
-    supremeCoin.addTransactionToPendingTransactions(newTransaction);
+    // add transaction to whichever node called it
+    const blockIndex = supremeCoin.addTransactionToPendingTransactions(newTransaction);
+
+    // add in final response
+    res.json({ note: `Transaction will be added in block ${blockIndex}.`})
 });
 
 // endpoint to broadcast transactions to blockchain
@@ -97,7 +97,33 @@ app.get('/mine', (req, res) => {
     // creating hash parameter
     const blockHash = supremeCoin.hashBlock(previousBlockHash, currentBlockData, nonce);
 
-    const newBlock = supremeCoin.createNewBlock();
+    const newBlock = supremeCoin.createNewBlock(nonce,previousBlockHash, blockHash);
+
+    // broadcast new block to entire network by hitting other endpoint
+    const requestPromises = [];
+    supremeCoin.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/receive-new-block',
+            method: 'POST',
+            body: { newBlock: newBlock },
+            json: true
+        };
+        // make the request for each node
+        requestPromises.push(rp(requestOptions));
+    })
+
+    Promise.all(requestPromises)
+    .then(data => {
+        // broadcast mining reward data
+        const requestOptions = {
+            uri: supremeCoin.currentNodeUrl + '/transaction/broadcast',
+            method: 'POST',
+            body: { amount: 12.5, sender: "00", recipient: nodeAddress },
+            json: true
+        }
+
+        return rp(requestOptions);
+    })
 
     res.json({
         note: "New block mined successfully",
@@ -106,8 +132,37 @@ app.get('/mine', (req, res) => {
 
     // sending reward for succesful mine
     // any "00" address is mining reward
-    supremeCoin.createNewTransaction(12.5,"00", nodeAddress);
+    // supremeCoin.createNewTransaction(12.5,"00", nodeAddress);
 })
+
+
+app.post('/receive-new-block', (req, res) => {
+    // endpoint expects new block request object
+    const newBlock = req.body.newBlock;
+
+    // get last block to compare hashes to ensure new block is legit
+    const lastBlock = supremeCoin.getLastBlock();
+    const correctHash = lastBlock.hash === newBlock.previousBlockHash;
+
+    // check if newblock index is one above last block
+    const correctIndex = lastBlock['index'] + 1 === newBlock['index'];
+
+    if (correctHash && correctIndex) {
+        supremeCoin.chain.push(newBlock);
+        supremeCoin.pendingTransactions = [];
+        
+        res.json({
+            note: 'New block received and accepted.',
+            newBlock: newBlock
+        })
+    } else {
+        res.json({
+            note: 'New block rejected.',
+            newBlock: newBlock
+        });
+    }
+})
+
 
 // using my pc as server
 app.listen(port, () => {
@@ -193,5 +248,84 @@ app.post('/register-nodes-bulk', (req, res) => {
         }
     });
     res.json({ note: 'Bulk registration successful.' });
-
 })
+
+// concensus endpoint to get each nodes' copy of the 
+// blockchain and compare them to the copy of the blockchain thats hosted on the current node
+app.get('/consensus', function(req, res) {
+    const requestPromises = [];
+
+    supremeCoin.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/blockchain',
+            method: 'GET',
+            json: true
+        }
+        requestPromises.push(rp(requestOptions));
+    })
+    Promise.all(requestPromises)
+    .then(blockchains => {
+        const currentChainLength = supremeCoin.chain.length;
+        let maxChainLength = currentChainLength;
+        let newLongestChain = null;
+        let newPendingTransactions = null;
+
+        blockchains.forEach(blockchain => {
+            if(supremeCoin.chain.length > maxChainLength){
+                maxChainLength = supremeCoin.chain.length;
+                newLongestChain = blockchain.chain;
+                newPendingTransactions = blockchain.pendingTransactions;
+            }
+        })
+
+        if(!newLongestChain || (newLongestChain && !supremeCoin.chainIsValid(newLongestChain))) {
+            res.json({
+                note: 'Current chain has not been replaced.',
+                chain: supremeCoin.chain
+            })
+        } else {
+            supremeCoin.chain = newLongestChain;
+            supremeCoin.pendingTransactions = newPendingTransactions;
+            res.json({
+                note: 'This chain has been replaced.',
+                chain: supremeCoin.chain
+            })
+        }
+    })
+})
+
+// block explorer endpoint 
+// return block based on blockhash
+app.get('/block/:blockHash', function(req, res) {
+    const blockHash = req.params.blockHash;
+    const correctBlock = supremeCoin.getBlock(blockHash);
+
+    res.json({
+        block: correctBlock
+    })
+})
+
+// get transaction correcsponding to an id
+app.get('/transaction/:transactionId', function(req, res) {
+    const transactionId = req.params.transactionId;
+    const transactionData = supremeCoin.getTransaction(transactionId);
+    res.json({
+        transaction: transactionData.transaction,
+        block: transactionData.block
+    })
+})
+
+// get all transactions from an address
+app.get('/address/:address', function(req, res) {
+    const address = req.params.address;
+    const addressData = supremeCoin.getAddressData(address);
+    res.json({
+        addressData: addressData
+    })
+})
+
+// endpoint to send frontend html/css file
+app.get('block-explorer', function(req, res) {
+    // sending back html file as response
+    res.sendFile('./block-explorer/index.html', { root: __dirname });
+});
