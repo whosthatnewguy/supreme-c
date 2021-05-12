@@ -325,7 +325,7 @@ app.get('/address/:address', function(req, res) {
 })
 
 // endpoint to send frontend html/css file
-app.get('block-explorer', function(req, res) {
+app.get('/block-explorer', function(req, res) {
     // sending back html file as response
     res.sendFile('./block-explorer/index.html', { root: __dirname });
 });
