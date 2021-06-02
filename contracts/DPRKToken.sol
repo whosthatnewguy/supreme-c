@@ -32,6 +32,7 @@ contract DPRKToken {
 
     // constructor
     constructor(uint256 _initialSupply) public {
+        // this is where all tokens are delpoyed
         balanceOf[msg.sender] = _initialSupply;
         // _underscore is just a convention
         totalSupply = _initialSupply;
