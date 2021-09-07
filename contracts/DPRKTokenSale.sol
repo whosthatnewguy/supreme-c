@@ -5,7 +5,7 @@ import "./DPRKToken.sol";
 // declare contract
 contract DPRKTokenSale {
     // state variable - data written to disk, not stored in memmory
-    address admin;
+    address payable admin;
     DPRKToken public tokenContract;
     uint256 public tokenPrice;
     uint256 public tokensSold;

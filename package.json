@@ -1,7 +1,6 @@
 {
   "name": "token_sale",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,6 +8,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "truffle": "^5.3.6"
-  }
+    "truffle": "^5.3.6",
+    "zeppelin-solidity": "^1.12.0"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {
+    "dotenv": "^10.0.0",
+    "ethereumjs-wallet": "^1.0.1",
+    "mocha": "^8.1.2",
+    "truffle-wallet-provider": "^0.0.5"
+  },
+  "description": ""
 }
